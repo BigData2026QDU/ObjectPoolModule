@@ -1,0 +1,96 @@
+name: Build and Release
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.issue.title, '[可发布]')
+    
+    steps:
+    - name: Acknowledge trigger
+      uses: actions/github-script@v6
+      with:
+        script: |
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '✅ 收到测试通过通知，开始构建和发布流程...'
+          });
+    
+    - uses: actions/checkout@v3
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        server-id: github
+    
+    - name: Build
+      run: mvn -B clean package -DskipTests
+    
+    - name: Create GitHub Release
+      if: success()
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Release v${{ github.run_number }}
+        body: |
+          ## 发布说明
+          
+          此 Release 由测试框架自动触发。
+          
+          **测试框架：** ${{ github.repository }}
+          **触发时间：** ${{ github.event.issue.created_at }}
+          **测试通过 Issue：** #${{ github.event.issue.number }}
+        draft: false
+        prerelease: false
+    
+    - name: Upload Release Asset
+      if: success()
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./service-pool/target/*.jar
+        asset_name: service-pool.jar
+        asset_content_type: application/java-archive
+    
+    - name: Close trigger issue on success
+      if: success()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          await github.rest.issues.update({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'closed'
+          });
+          
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `✅ 构建和发布成功！\n\nRelease: ${{ steps.create_release.outputs.html_url }}`
+          });
+    
+    - name: Comment on failure
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '❌ 构建失败，请检查日志。'
+          });
