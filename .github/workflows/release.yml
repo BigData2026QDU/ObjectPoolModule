@@ -38,36 +38,29 @@ jobs:
     - name: Build
       run: cd service-pool && mvn -B clean package -DskipTests
     
+    - name: Get version
+      id: version
+      run: |
+        cd service-pool
+        VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+    
     - name: Create GitHub Release
       if: success()
-      id: create_release
-      uses: actions/create-release@v1
+      run: |
+        cd service-pool
+        gh release create "v${{ steps.version.outputs.version }}" \
+          target/*.jar \
+          --title "Release v${{ steps.version.outputs.version }}" \
+          --notes "## 发布说明
+
+        此 Release 由测试框架自动触发。
+
+        **测试框架：** ${{ github.repository }}
+        **触发时间：** ${{ github.event.issue.created_at }}
+        **测试通过 Issue：** #${{ github.event.issue.number }}"
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: v${{ github.run_number }}
-        release_name: Release v${{ github.run_number }}
-        body: |
-          ## 发布说明
-          
-          此 Release 由测试框架自动触发。
-          
-          **测试框架：** ${{ github.repository }}
-          **触发时间：** ${{ github.event.issue.created_at }}
-          **测试通过 Issue：** #${{ github.event.issue.number }}
-        draft: false
-        prerelease: false
-    
-    - name: Upload Release Asset
-      if: success()
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./service-pool/target/*.jar
-        asset_name: service-pool.jar
-        asset_content_type: application/java-archive
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Publish to GitHub Packages
       if: success()
@@ -91,7 +84,7 @@ jobs:
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: `✅ 构建和发布成功！\n\nRelease: ${{ steps.create_release.outputs.html_url }}\n\nGitHub Packages: https://github.com/BigData2026QDU/ObjectPoolModule/packages`
+            body: `✅ 构建和发布成功！\n\n**Release：** https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}\n**GitHub Packages：** https://github.com/${{ github.repository }}/packages`
           });
     
     - name: Comment on failure
