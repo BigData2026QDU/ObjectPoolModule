@@ -27,9 +27,6 @@ jobs:
     - name: Run tests
       run: cd service-pool && mvn -B test
     
-    - name: Generate coverage report
-      run: cd service-pool && mvn -B jacoco:report
-    
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       if: always()
