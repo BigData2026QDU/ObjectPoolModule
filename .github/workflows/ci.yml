@@ -22,13 +22,13 @@ jobs:
         distribution: 'temurin'
     
     - name: Build with Maven
-      run: mvn -B clean compile
+      run: cd service-pool && mvn -B clean compile
     
     - name: Run tests
-      run: mvn -B test
+      run: cd service-pool && mvn -B test
     
     - name: Generate coverage report
-      run: mvn -B jacoco:report
+      run: cd service-pool && mvn -B jacoco:report
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
