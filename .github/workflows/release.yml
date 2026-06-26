@@ -4,6 +4,11 @@ on:
   issues:
     types: [opened]
 
+permissions:
+  contents: write
+  issues: write
+  packages: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -31,7 +36,7 @@ jobs:
         server-id: github
     
     - name: Build
-      run: mvn -B clean package -DskipTests
+      run: cd service-pool && mvn -B clean package -DskipTests
     
     - name: Create GitHub Release
       if: success()
@@ -64,6 +69,12 @@ jobs:
         asset_name: service-pool.jar
         asset_content_type: application/java-archive
     
+    - name: Publish to GitHub Packages
+      if: success()
+      run: cd service-pool && mvn -B deploy -DskipTests
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
     - name: Close trigger issue on success
       if: success()
       uses: actions/github-script@v6
@@ -80,7 +91,7 @@ jobs:
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: `✅ 构建和发布成功！\n\nRelease: ${{ steps.create_release.outputs.html_url }}`
+            body: `✅ 构建和发布成功！\n\nRelease: ${{ steps.create_release.outputs.html_url }}\n\nGitHub Packages: https://github.com/BigData2026QDU/ObjectPoolModule/packages`
           });
     
     - name: Comment on failure
