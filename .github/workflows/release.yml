@@ -83,15 +83,23 @@ jobs:
               tree = ET.parse("service-pool/pom.xml")
               version_node = tree.getroot().find("m:version", ns)
               base_version = normalize(version_node.text if version_node is not None else "")
-              latest_tag = subprocess.run(
+              latest_tags = subprocess.run(
                   ["git", "tag", "--list", "v*", "--sort=-version:refname"],
                   check=True,
                   capture_output=True,
                   text=True,
               ).stdout.strip().splitlines()
 
-              if latest_tag:
-                  major, minor, patch = map(int, normalize(latest_tag[0]).split("."))
+              latest_semver = None
+              for candidate in latest_tags:
+                  try:
+                      latest_semver = normalize(candidate)
+                      break
+                  except SystemExit:
+                      continue
+
+              if latest_semver:
+                  major, minor, patch = map(int, latest_semver.split("."))
                   release_version = f"{major}.{minor}.{patch + 1}"
               else:
                   release_version = base_version
